@@ -1,16 +1,6 @@
 <?php //MAIN 
 
-
 include 'db.php';
-
-
-
-
-
-
-
-
-
 
 // Fetch all graves 
 $sql = "SELECT g.grave_id, g.section, g.block_number, g.lot_number,g.status, d.first_name, d.last_name
@@ -51,8 +41,6 @@ $sql = "SELECT COUNT(*) AS total_deceased FROM deceased";
 $result = $conn->query($sql);
 $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceased'] : 0;
 
-
-
 ?>
 
 
@@ -64,8 +52,8 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin</title>
-    <link rel="stylesheet" href="index-style.css">
+    <title>Memorium - Admin</title>
+    <link rel="stylesheet" href="style/index-style2.css">
     
 
     <script src="script.js" defer></script>
@@ -74,7 +62,7 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
 
 <body>
 
-
+    <!-- Sidebar -->
     <div class="sidebar">
         <div class="logo-details">
             <div class="logo_name">Memorium</div>
@@ -111,15 +99,13 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
                 <span class="tooltip">Profile</span>
             </li>
 
-
-
-            
+            <!-- Profile -->
             <li class="profile">
                 <div class="profile-details">
                     <img src="profile.png" alt="profileImg">
                     <div class="name_job">
                         <div class="name">Memorium</div>
-                        <div class="job">cemetery</div>
+                        <div class="job">Cemetery Find</div>
                     </div>
                 </div>
                 <i class='bx bx-log-out' id="log_out"></i>
@@ -127,40 +113,76 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
         </ul>
     </div>
 
-
+    <!-- Dashboard -->
     <section id="dashboard" class="home-section">
-    <div class="text">Welcome to Admin Dashboard</div>
+    <div class="header">
+        <img src="style/image/logo.png" alt="Logo" class="logo">
+        <div class="text">Welcome to Admin Dashboard</div>
+    </div>
 
+    <!-- Stats -->
     <div class="stats-container">
+    <div class="stat-item">
         <div class="stat-box">
             <h3>Total Graves</h3>
             <p><?php echo $total_graves; ?></p>
-            
         </div>
+        <button id="openAddGrave" data-modal="addGraveModal" class="btn">Add Grave</button>
+    </div>
+
+    <div class="stat-item">
         <div class="stat-box">
             <h3>Total Deceased</h3>
             <p><?php echo $total_deceased; ?></p>
-            
         </div>
+        <button id="openAddDeceased" data-modal="addDeceasedModal" class="btn">Add Deceased</button>
     </div>
+</div>
 
-    <button id="openAddGrave" data-modal="addGraveModal">Add Grave</button>
-    <button id="openAddDeceased" data-modal="addDeceasedModal">Add Deceased</button>
+<!--LIST AND SEARCH SECTION -->
+<section class="list-section">
+    <h2>List of Deceased</h2>
+    <p>Below is a list of all deceased individuals in the cemetery.</p>
 
+    <!-- Search Input -->
+    <input type="text" id="searchInput" placeholder="Search by name..." onkeyup="searchTable()">
 
-   
-
-
-
+    <table border="1" id="deceasedTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Birth Date</th>
+                <th>Death Date</th>
+                <th>Obituary</th>
+                <th>Grave Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($deceasedList as $person): ?>
+                <tr>
+                    <td><?php echo $person['deceased_id']; ?></td>
+                    <td><?php echo htmlspecialchars($person['first_name']); ?></td>
+                    <td><?php echo htmlspecialchars($person['last_name']); ?></td>
+                    <td><?php echo $person['birth_date']; ?></td>
+                    <td><?php echo $person['death_date']; ?></td>
+                    <td><?php echo htmlspecialchars($person['obituary'] ?: 'N/A'); ?></td>
+                    <td>Section <?php echo $person['section']; ?>, Block <?php echo $person['block_number']; ?>, Lot <?php echo $person['lot_number']; ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
 </section>
 
-
+</section>
 
     <section id="grave" class="grave-section" style="display: none;" >
 
     <!-- Display List of Graves -->
-<h2>List of Graves</h2>
-<table border="1">
+    <h2>List of Graves</h2>
+    <table border="1">
+    
     <thead>
         <tr>
             <th>Grave ID</th>
@@ -216,9 +238,6 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
     </div>
 </div>
 
-
-
-    
 
 <!-- Display List of Deceased -->
 <section id="deceased" class="deceased-section" style="display: none;">
@@ -339,9 +358,6 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
         <p>Grave Already Exist. Please try again.</p>
     </div>
 </div>
-
-
-
 
 
 <!-- Modal ADD DECEASED -->
@@ -574,4 +590,30 @@ function showSection(sectionId) {
     // Show the selected section
     document.getElementById(sectionId).style.display = 'block';
 }
+</script>
+
+<script>
+    function searchTable() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("searchInput");
+        filter = input.value.toLowerCase().split(" "); // Split the input by space
+        table = document.getElementById("deceasedTable");
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) { // Start at 1 to skip table header
+            td = tr[i].getElementsByTagName("td");
+            let found = false;
+
+            // Combine first and last name and check if the search input matches the full name
+            let fullName = (td[1].textContent || td[1].innerText) + " " + (td[2].textContent || td[2].innerText); // Combine first and last name
+            
+            // Check if every part of the input matches the full name
+            let matches = filter.every(part => fullName.toLowerCase().includes(part));
+            if (matches) {
+                found = true;
+            }
+
+            tr[i].style.display = found ? "" : "none"; // Show or hide row
+        }
+    }
 </script>
