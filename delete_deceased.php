@@ -1,10 +1,10 @@
-<?php   //DELETE DECEASED RECORD
+<?php   
 include 'db.php';
 
 if (isset($_GET['id'])) {
-    $id = $conn->real_escape_string($_GET['id']); // Prevent SQL injection
+    $id = $conn->real_escape_string($_GET['id']); 
 
-    // Fetch the grave_id before deleting the deceased record
+   
     $get_grave = "SELECT grave_id FROM deceased WHERE deceased_id = '$id'";
     $result = $conn->query($get_grave);
 
@@ -12,13 +12,15 @@ if (isset($_GET['id'])) {
         $row = $result->fetch_assoc();
         $grave_id = $row['grave_id'];
 
-        // Delete from deceased first
+        
         $sql_deceased = "DELETE FROM deceased WHERE deceased_id = '$id'";
         if ($conn->query($sql_deceased) === TRUE) {
-            // Update the graves table to set status to "available"
+           
             $sql_update_grave = "UPDATE graves SET status = 'available' WHERE grave_id = '$grave_id'";
             $conn->query($sql_update_grave);
-            echo "Record deleted successfully.";
+            header("Location: index.php?status=deleteDeceasedSuccess"); 
+            exit();
+          
         } else {
             echo "Error deleting deceased record: " . $conn->error;
         }

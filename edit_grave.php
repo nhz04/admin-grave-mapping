@@ -1,5 +1,5 @@
 <?php
-// EDIT GRAVE RECORD
+
 include 'db.php';
 
 if (isset($_GET['id'])) {
@@ -10,20 +10,20 @@ if (isset($_GET['id'])) {
 }
 
 if (isset($_POST['update_grave'])) {
-    // Fetch the values from the form
-    $id = $_POST['grave_id']; // Make sure this matches the form input name
+
+    $id = $_POST['grave_id']; 
     $section = $_POST['section'];
     $block_number = $_POST['block_number'];
     $lot_number = $_POST['lot_number'];
     $status = $_POST['status'];
 
-    // Sanitize inputs to prevent SQL injection
+   
     $section = mysqli_real_escape_string($conn, $section);
     $block_number = mysqli_real_escape_string($conn, $block_number);
     $lot_number = mysqli_real_escape_string($conn, $lot_number);
     $status = mysqli_real_escape_string($conn, $status);
 
-    // SQL query to update record
+  
     $sql = "UPDATE graves SET 
                 section = '$section', 
                 block_number = '$block_number', 
@@ -32,8 +32,7 @@ if (isset($_POST['update_grave'])) {
             WHERE grave_id = '$id'";
 
     if ($conn->query($sql) === TRUE) {
-        // Redirect after update to prevent form resubmission on refresh
-        header("Location: index.php"); // Change index.php to your grave list page
+        header("Location: index.php?status=editGraveSuccess"); 
         exit();
     } else {
         echo "Error: " . $conn->error;

@@ -4,7 +4,7 @@ include 'db.php';
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
 
-    // Check if the grave is assigned to a deceased individual
+    
     $check = "SELECT * FROM deceased WHERE grave_id = '$id'";
     $result = $conn->query($check);
 
@@ -13,7 +13,10 @@ if (isset($_GET['id'])) {
     } else {
         $sql = "DELETE FROM graves WHERE grave_id = '$id'";
         if ($conn->query($sql) === TRUE) {
-            echo "Grave deleted successfully.";
+            header("Location: index.php?status=deleteGraveSuccess"); 
+            exit();
+           
+         
         } else {
             echo "Error: " . $conn->error;
         }

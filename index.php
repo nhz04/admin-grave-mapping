@@ -1,45 +1,12 @@
 <?php //MAIN 
 
 include 'db.php';
+include 'queries.php';
 
-// Fetch all graves 
-$sql = "SELECT g.grave_id, g.section, g.block_number, g.lot_number,g.status, d.first_name, d.last_name
-        FROM graves g
-        LEFT JOIN deceased d ON g.grave_id = d.grave_id
-        ORDER BY g.grave_id ASC";  
-$result = $conn->query($sql);
-$graves = [];
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $graves[] = $row;
-    }
-}
-
-// Fetch all deceased individuals
-$sql = "SELECT d.deceased_id, d.first_name, d.last_name, d.birth_date, d.death_date, d.obituary, 
-               g.grave_id, g.section, g.block_number, g.lot_number, g.status
-        FROM deceased d
-        LEFT JOIN graves g ON d.grave_id = g.grave_id
-        ORDER BY g.grave_id ASC";
-$result = $conn->query($sql);
-$deceasedList = [];
-
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $deceasedList[] = $row;
-    }
-}
-
-
-// Fetch total graves
-$sql = "SELECT COUNT(*) AS total_graves FROM graves";
-$result = $conn->query($sql);
-$total_graves = ($result->num_rows > 0) ? $result->fetch_assoc()['total_graves'] : 0;
-
-// Fetch total deceased
-$sql = "SELECT COUNT(*) AS total_deceased FROM deceased";
-$result = $conn->query($sql);
-$total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceased'] : 0;
+$graves = fetchGraves($conn);
+$deceasedList = fetchDeceased($conn);
+$total_graves = getTotalGraves($conn);
+$total_deceased = getTotalDeceased($conn);
 
 ?>
 
@@ -53,10 +20,12 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memorium - Admin</title>
-    <link rel="stylesheet" href="style/index-style2.css">
+    <link rel="stylesheet" href="index-style.css">
     
 
-    <script src="script.js" defer></script>
+    <script src="sidebar-nav.js" defer></script>
+    <script src="cemetery.js"></script>
+
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
 
@@ -211,20 +180,47 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
         Edit
     </button>
 
-                    <a href="delete_grave.php?id=<?php echo $grave['grave_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
-                </td>
+    
+
+    <button class="delete-btn" onclick="openDeleteGraveModal(<?php echo $grave['grave_id']; ?>)">Delete</button>
+
+
+
+    
+
+
+
+
+
+                    
             </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
 </section>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeDeleteGraveModal()">&times;</span>
+        <h3 style="color: red;">Confirm Delete</h3>
+        <p>Are you sure you want to delete this grave record?</p>
+        <button onclick="confirmDeleteGraveModal()" class="confirm-btn">Yes, Delete</button>
+        <button onclick="closeDeleteGraveModal()" class="cancel-btn">Cancel</button>
+    </div>
+</div>
+
+
+
+
+
+
 <!-- EDIT MODAL GRAVE -->
 <div id="editGraveModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
         <h3>Edit Grave</h3>
-        <form method="POST" action="edit_grave.php"> <!-- Set correct action -->
+        <form method="POST" action="edit_grave.php">
             <input type="hidden" name="grave_id" value="<?php echo isset($grave['grave_id']) ? $grave['grave_id'] : ''; ?>">
             <input type="text" name="section" value="<?php echo isset($grave['section']) ? $grave['section'] : ''; ?>" required>
             <input type="text" name="block_number" value="<?php echo isset($grave['block_number']) ? $grave['block_number'] : ''; ?>" required>
@@ -280,7 +276,10 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
 </button>
 
 
-                    <a href="delete.php?id=<?php echo $person['deceased_id']; ?>" onclick="return confirm('Are you sure?')">Delete</a>
+
+<!-- Delete by deceased_id -->
+<button class="delete-btn" onclick="openDeleteDeceasedModal(<?php echo $person['deceased_id']; ?>)">Delete</button>
+
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -289,13 +288,25 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
 </div>
     </section>
 
+<!-- Delete Deceased Confirmation Modal -->
+<div id="deleteModal2" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeDeleteDeceasedModal()">&times;</span>
+        <h3 style="color: red;">Confirm Delete</h3>
+        <p id="deleteMessage">Are you sure you want to delete this deceased record?</p>
+        <button onclick="confirmDeleteDeceasedModal()" class="confirm-btn">Yes, Delete</button>
+        <button onclick="closeDeleteDeceasedModal()" class="cancel-btn">Cancel</button>
+    </div>
+</div>
+
+
 
    <!-- EDIT MODAL DECEASED -->
 <div id="editDeceasedModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
         <h3>Edit Deceased Individual</h3>
-        <form action="edit.php" method="POST">
+        <form action="edit_deceased.php" method="POST">
     <input type="hidden" name="deceased_id" id="editDeceasedId">
     
     <label>First Name:</label>
@@ -422,198 +433,47 @@ $total_deceased = ($result->num_rows > 0) ? $result->fetch_assoc()['total_deceas
         <h3 style="color: red;">Error!</h3>
         <p>The specified grave does not exist.</p>
     </div>
+</div>  
+
+
+<!-- EDIT GRAVE Success Message Popup -->
+<div id="editGraveSuccess" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('editGraveSuccess').style.display='none'">&times;</span>
+        <h3 style="color: green;">Success!</h3>
+        <p>Grave details successfully updated.</p>
+    </div>
 </div>
 
+<!-- EDIT DECEASED Success Message Popup -->
+<div id="editDeceasedSuccess" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('editDeceasedSuccess').style.display='none'">&times;</span>
+        <h3 style="color: green;">Success!</h3>
+        <p>Deceased details successfully updated.</p>
+    </div>
+</div>
 
+<!-- DELETE GRAVE Success Message Popup -->
+<div id="deleteGraveSuccess" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('deleteGraveSuccess').style.display='none'">&times;</span>
+        <h3 style="color: green;">Success!</h3>
+        <p>Grave record successfully deleted.</p>
+    </div>
+</div>
 
+<!-- DELETE DECEASED Success Message Popup -->
+<div id="deleteDeceasedSuccess" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('deleteDeceasedSuccess').style.display='none'">&times;</span>
+        <h3 style="color: green;">Success!</h3>
+        <p>Deceased record successfully deleted.</p>
+    </div>
+</div>
 
-
-
-
-   
-
-
-    
 
 </body>
 
 </html>
 
-<script>
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    const editButtons = document.querySelectorAll(".editGraveBtn");
-    const modal = document.getElementById("editGraveModal");
-    const closeBtn = modal.querySelector(".close");
-
-    editButtons.forEach(button => {
-        button.addEventListener("click", function () {
-            document.querySelector("input[name='grave_id']").value = this.dataset.id;
-            document.querySelector("input[name='section']").value = this.dataset.section;
-            document.querySelector("input[name='block_number']").value = this.dataset.block;
-            document.querySelector("input[name='lot_number']").value = this.dataset.lot;
-
-            modal.style.display = "block";
-        });
-    });
-
-    closeBtn.addEventListener("click", function () {
-        modal.style.display = "none";
-    });
-
-    window.addEventListener("click", function (event) {
-        if (event.target === modal) {
-            modal.style.display = "none";
-        }
-    });
-});
-
-
-
-
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    function openModal(modalId) {
-        let modal = document.getElementById(modalId);
-        if (modal) {
-            modal.style.display = "block";
-        }
-    }
-
-    function closeModal(modal) {
-        modal.style.display = "none";
-    }
-
-    // Open modal when buttons are clicked
-    document.getElementById("openAddGrave").addEventListener("click", function () {
-        openModal("addGraveModal");
-    });
-
-    document.getElementById("openAddDeceased").addEventListener("click", function () {
-        openModal("addDeceasedModal");
-    });
-
-    // Close modal when clicking the close button
-    document.querySelectorAll(".close").forEach(button => {
-        button.addEventListener("click", function () {
-            closeModal(this.closest(".modal"));
-        });
-    });
-
-    // Close modal when clicking outside modal content
-    window.addEventListener("click", function (event) {
-        document.querySelectorAll(".modal").forEach(modal => {
-            if (event.target === modal) {
-                closeModal(modal);
-            }
-        });
-    });
-});
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    var editButtons = document.querySelectorAll(".editDeceasedBtn");
-    var modal = document.getElementById("editDeceasedModal");
-
-    editButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            // Get data attributes from the clicked button
-            var deceasedId = this.getAttribute("data-id");
-            var firstName = this.getAttribute("data-firstname");
-            var lastName = this.getAttribute("data-lastname");
-            var birthDate = this.getAttribute("data-birthdate");
-            var deathDate = this.getAttribute("data-deathdate");
-            var obituary = this.getAttribute("data-obituary");
-
-            // Populate the modal form fields
-            document.getElementById("editDeceasedId").value = deceasedId;
-            document.getElementById("editFirstName").value = firstName;
-            document.getElementById("editLastName").value = lastName;
-            document.getElementById("editBirthDate").value = birthDate;
-            document.getElementById("editDeathDate").value = deathDate;
-            document.getElementById("editObituary").value = obituary;
-
-            // Show the modal
-            modal.style.display = "block";
-        });
-    });
-
-    // Close modal when clicking the close button
-    document.querySelector(".modal .close").addEventListener("click", function () {
-        modal.style.display = "none";
-    });
-
-    // Close modal when clicking outside the modal content
-    window.addEventListener("click", function (event) {
-        if (event.target == modal) {
-            modal.style.display = "none";
-        }
-    });
-});
-
-
-
-
-
-
-
-if (window.location.href.indexOf("status=addGraveSuccess") !== -1) {
-    document.getElementById("addGraveSuccess").style.display = "block";
-} else if (window.location.href.indexOf("status=addGraveFailed") !== -1) {  
-    document.getElementById("addGraveFailed").style.display = "block"; 
-} else if (window.location.href.indexOf("status=addDeceasedSuccess") !== -1) {  
-    document.getElementById("addDeceasedSuccess").style.display = "block";
-} else if (window.location.href.indexOf("status=addDeceasedFailed") !== -1) {  
-    document.getElementById("addDeceasedFailed").style.display = "block";
-} else if (window.location.href.indexOf("status=graveNotExist") !== -1) {  
-    document.getElementById("graveNotExist").style.display = "block";
-}
-
-setTimeout(() => {
-    window.history.replaceState(null, null, window.location.pathname);
-}, 3000);
-
-
-
-
-
-
-// Show the selected section
-function showSection(sectionId) {
-    // Hide all sections
-    document.querySelectorAll('.home-section, .grave-section, .deceased-section, .modal').forEach(section => {
-        section.style.display = 'none';
-    });
-
-    // Show the selected section
-    document.getElementById(sectionId).style.display = 'block';
-}
-</script>
-
-<script>
-    function searchTable() {
-        var input, filter, table, tr, td, i, txtValue;
-        input = document.getElementById("searchInput");
-        filter = input.value.toLowerCase().split(" "); // Split the input by space
-        table = document.getElementById("deceasedTable");
-        tr = table.getElementsByTagName("tr");
-
-        for (i = 1; i < tr.length; i++) { // Start at 1 to skip table header
-            td = tr[i].getElementsByTagName("td");
-            let found = false;
-
-            // Combine first and last name and check if the search input matches the full name
-            let fullName = (td[1].textContent || td[1].innerText) + " " + (td[2].textContent || td[2].innerText); // Combine first and last name
-            
-            // Check if every part of the input matches the full name
-            let matches = filter.every(part => fullName.toLowerCase().includes(part));
-            if (matches) {
-                found = true;
-            }
-
-            tr[i].style.display = found ? "" : "none"; // Show or hide row
-        }
-    }
-</script>
