@@ -28,25 +28,62 @@ $row = $result->fetch_assoc();
 $grave_id = $row['grave_id'];
 $grave_status = $row['status'];
 
-
 if ($grave_status === 'Taken') {
     header("Location: index.php?status=addDeceasedFailed");
     exit();
 }
 
 
-$sql = "INSERT INTO deceased (first_name, last_name, birth_date, death_date, obituary, grave_id) 
-        VALUES ('$first_name', '$last_name', '$birth_date', '$death_date', '$obituary', '$grave_id')";
+$death_certificate_path = NULL;
+if (!empty($_FILES['death_certificate']['name'])) {
+    $upload_dir = "death_certificates/";
+    if (!is_dir($upload_dir)) {
+        if (!mkdir($upload_dir, 0777, true)) {
+            header("Location: index.php?status=uploadFailed");
+            exit();
+        }
+    }
+
+    $file_name = basename($_FILES['death_certificate']['name']);
+    $file_type = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+    $allowed_types = array('pdf', 'jpg', 'jpeg', 'png');
+
+    // Validate file type
+    if (!in_array($file_type, $allowed_types)) {
+        header("Location: index.php?status=invalidFileType");
+        exit();
+    }
+
+    // Validate file size (example: 5MB max)
+    if ($_FILES['death_certificate']['size'] > 5000000) {
+        header("Location: index.php?status=uploadFailed");
+        exit();
+    }
+
+    // Generate a unique file name
+    $target_file = $upload_dir . uniqid() . "_" . $file_name;
+
+    if (move_uploaded_file($_FILES['death_certificate']['tmp_name'], $target_file)) {
+        $death_certificate_path = $conn->real_escape_string($target_file);
+    } else {
+        header("Location: index.php?status=uploadFailed");
+        exit();
+    }
+}
+
+
+
+
+$sql = "INSERT INTO deceased (first_name, last_name, birth_date, death_date, obituary, grave_id, death_certificate) 
+        VALUES ('$first_name', '$last_name', '$birth_date', '$death_date', '$obituary', '$grave_id', '$death_certificate_path')";
 
 if ($conn->query($sql) === TRUE) {
-
     $update_grave = "UPDATE graves SET status = 'Taken' WHERE grave_id = '$grave_id'";
     $conn->query($update_grave);
 
     header("Location: index.php?status=addDeceasedSuccess");
     exit();
 }
-
 
 header("Location: index.php?status=addDeceasedFailed");
 exit();

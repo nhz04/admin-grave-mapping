@@ -9,7 +9,8 @@ if (isset($_GET['id'])) {
     $result = $conn->query($check);
 
     if ($result->num_rows > 0) {
-        echo "Error: Cannot delete. This grave is assigned to a deceased individual.";
+        header("Location: index.php?status=deleteGraveFailed"); 
+        exit();
     } else {
         $sql = "DELETE FROM graves WHERE grave_id = '$id'";
         if ($conn->query($sql) === TRUE) {

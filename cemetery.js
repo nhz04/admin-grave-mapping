@@ -72,21 +72,25 @@ document.addEventListener("DOMContentLoaded", function () {
         "status=addDeceasedSuccess": "addDeceasedSuccess",
         "status=addDeceasedFailed": "addDeceasedFailed",
         "status=graveNotExist": "graveNotExist",
-
-        "status=editGraveSuccess": "editGraveSuccess", 
+        "status=editGraveSuccess": "editGraveSuccess",
         "status=editDeceasedSuccess": "editDeceasedSuccess",
         "status=deleteGraveSuccess": "deleteGraveSuccess",
-        "status=deleteDeceasedSuccess": "deleteDeceasedSuccess"
-
-       
+        "status=deleteGraveFailed": "deleteGraveFailed",
+        "status=deleteDeceasedSuccess": "deleteDeceasedSuccess",
+        "status=uploadFailed": "uploadFailed",
+        "status=invalidFileType": "invalidFileType"
     };
 
-    Object.keys(statusMessages).forEach(status => {
-        if (window.location.href.indexOf(status) !== -1) {
-            document.getElementById(statusMessages[status]).style.display = "block";
+    // SHOW STATUS POP-UP BASED ON URL PARAMETERS
+    const urlParams = new URLSearchParams(window.location.search);
+    for (const key in statusMessages) {
+        if (urlParams.toString().includes(key)) {
+            document.getElementById(statusMessages[key]).style.display = "block";
+            break; // Stop checking after the first match
         }
-    });
+    }
 
+    // REMOVE STATUS FROM URL AFTER 3 SECONDS
     setTimeout(() => {
         window.history.replaceState(null, null, window.location.pathname);
     }, 3000);
@@ -123,12 +127,10 @@ function searchTable() {
     }
 }
 
-
 // ==============================
 // DELETE POP-UP MESSAGE FOR GRAVE
 // ==============================
-
-let deleteGraveId = null; 
+let deleteId = null;
 
 function openDeleteGraveModal(id) {
     deleteId = id;
@@ -146,32 +148,8 @@ function confirmDeleteGrave() {
 }
 
 // ==============================
-// DELETE POP UP MESSAGE
-// ==============================
-
-
-let deleteId = null; 
-
-function openDeleteGraveModal(id) {
-    deleteId = id;
-    document.getElementById("deleteModal").style.display = "block";
-}
-
-function closeDeleteGraveModal() {
-    document.getElementById("deleteModal").style.display = "none";
-}
-
-function confirmDeleteGraveModal() {
-    if (deleteId) {
-        window.location.href = "delete_grave.php?id=" + deleteId;
-    }
-}
-
-
-// ==============================
 // DELETE POP-UP MESSAGE FOR DECEASED
 // ==============================
-
 let deleteDeceasedId = null;
 
 function openDeleteDeceasedModal(id) {
@@ -183,8 +161,16 @@ function closeDeleteDeceasedModal() {
     document.getElementById("deleteModal2").style.display = "none";
 }
 
-function confirmDeleteDeceasedModal() {
+function confirmDeleteDeceased() {
     if (deleteDeceasedId) {
         window.location.href = "delete_deceased.php?id=" + deleteDeceasedId;
     }
 }
+
+
+
+
+
+
+
+

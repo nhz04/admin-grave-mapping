@@ -1,12 +1,47 @@
 <?php //MAIN 
 
 include 'db.php';
-include 'queries.php';
+include 'functions.php';
 
 $graves = fetchGraves($conn);
 $deceasedList = fetchDeceased($conn);
 $total_graves = getTotalGraves($conn);
 $total_deceased = getTotalDeceased($conn);
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    if (!isset($conn)) {
+        die("Database connection error");
+    }
+
+    $status = "error"; // Default status
+
+    if (isset($_POST['add_deceased'])) {
+        $status = addDeceased($conn, $_POST, $_FILES);
+    } elseif (isset($_POST['add_grave'])) {
+        $status = addGrave(
+            $conn, 
+            $_POST['section'] ?? '', 
+            $_POST['block_number'] ?? '', 
+            $_POST['lot_number'] ?? ''
+        );
+    } elseif (isset($_POST['update_grave'])) {
+        editGrave($conn);
+        $status = "editGraveSuccess";
+    } 
+
+    $status = urlencode($status); 
+    header("Location: index.php?status=$status");
+    exit();
+}
+
+
+
+
+
+
+
+
+
 
 ?>
 
@@ -15,20 +50,22 @@ $total_deceased = getTotalDeceased($conn);
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memorium - Admin</title>
-    <link rel="stylesheet" href="index-style.css">
     
+ 
+    <link rel="stylesheet" href="style3.css">
 
     <script src="sidebar-nav.js" defer></script>
     <script src="cemetery.js"></script>
+    <script src="viewDeceased.js"></script>
+    <script src="updateFileName.js"></script>
+    
 
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
-
 <body>
 
     <!-- Sidebar -->
@@ -81,14 +118,12 @@ $total_deceased = getTotalDeceased($conn);
             </li>
         </ul>
     </div>
-
     <!-- Dashboard -->
     <section id="dashboard" class="home-section">
     <div class="header">
-        <img src="style/image/logo.png" alt="Logo" class="logo">
-        <div class="text">Welcome to Admin Dashboard</div>
+        <img src="profile.png" alt="Logo" class="logo">
+        <div class="welcome">Welcome to Admin Dashboard</div>
     </div>
-
     <!-- Stats -->
     <div class="stats-container">
     <div class="stat-item">
@@ -98,7 +133,6 @@ $total_deceased = getTotalDeceased($conn);
         </div>
         <button id="openAddGrave" data-modal="addGraveModal" class="btn">Add Grave</button>
     </div>
-
     <div class="stat-item">
         <div class="stat-box">
             <h3>Total Deceased</h3>
@@ -108,14 +142,14 @@ $total_deceased = getTotalDeceased($conn);
     </div>
 </div>
 
+
 <!--LIST AND SEARCH SECTION -->
 <section class="list-section">
     <h2>List of Deceased</h2>
     <p>Below is a list of all deceased individuals in the cemetery.</p>
 
     <!-- Search Input -->
-    <input type="text" id="searchInput" placeholder="Search by name..." onkeyup="searchTable()">
-
+    <input type="" id="searchInput" placeholder="Search by name..." onkeyup="searchTable()">
     <table border="1" id="deceasedTable">
         <thead>
             <tr>
@@ -143,12 +177,9 @@ $total_deceased = getTotalDeceased($conn);
         </tbody>
     </table>
 </section>
-
 </section>
-
+<!-- Display List of Graves -->
     <section id="grave" class="grave-section" style="display: none;" >
-
-    <!-- Display List of Graves -->
     <h2>List of Graves</h2>
     <table border="1">
     
@@ -183,23 +214,13 @@ $total_deceased = getTotalDeceased($conn);
     
 
     <button class="delete-btn" onclick="openDeleteGraveModal(<?php echo $grave['grave_id']; ?>)">Delete</button>
-
-
-
-    
-
-
-
-
-
                     
             </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
 </section>
-
-<!-- Delete Confirmation Modal -->
+<!-- Delete Grave Modal -->
 <div id="deleteModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeDeleteGraveModal()">&times;</span>
@@ -209,18 +230,12 @@ $total_deceased = getTotalDeceased($conn);
         <button onclick="closeDeleteGraveModal()" class="cancel-btn">Cancel</button>
     </div>
 </div>
-
-
-
-
-
-
 <!-- EDIT MODAL GRAVE -->
 <div id="editGraveModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
         <h3>Edit Grave</h3>
-        <form method="POST" action="edit_grave.php">
+        <form method="POST" action="">
             <input type="hidden" name="grave_id" value="<?php echo isset($grave['grave_id']) ? $grave['grave_id'] : ''; ?>">
             <input type="text" name="section" value="<?php echo isset($grave['section']) ? $grave['section'] : ''; ?>" required>
             <input type="text" name="block_number" value="<?php echo isset($grave['block_number']) ? $grave['block_number'] : ''; ?>" required>
@@ -233,8 +248,6 @@ $total_deceased = getTotalDeceased($conn);
         </form>
     </div>
 </div>
-
-
 <!-- Display List of Deceased -->
 <section id="deceased" class="deceased-section" style="display: none;">
 <div class="table-container">
@@ -274,20 +287,37 @@ $total_deceased = getTotalDeceased($conn);
     data-obituary="<?php echo htmlspecialchars($person['obituary']); ?>">
     Edit
 </button>
-
-
-
 <!-- Delete by deceased_id -->
 <button class="delete-btn" onclick="openDeleteDeceasedModal(<?php echo $person['deceased_id']; ?>)">Delete</button>
 
+<!-- View Button -->
+<button class="view-btn" onclick="console.log('Clicked ID:', <?php echo $person['deceased_id']; ?>); openViewDeceasedModal(<?php echo $person['deceased_id']; ?>)">View</button>     
                 </td>
             </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
 </div>
-    </section>
+</section>
 
+<!-- VIEW MODAL DECEASED -->
+<div id="viewDeceasedModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>View Deceased Individual</h3>
+        <div>
+            <p><strong>ID:</strong> <span id="viewDeceasedId"></span></p>
+            <p><strong>First Name:</strong> <span id="viewFirstName"></span></p>
+            <p><strong>Last Name:</strong> <span id="viewLastName"></span></p>
+            <p><strong>Birth Date:</strong> <span id="viewBirthDate"></span></p>
+            <p><strong>Death Date:</strong> <span id="viewDeathDate"></span></p>
+            <p><strong>Obituary:</strong> <span id="viewObituary"></span></p>
+            <p><strong>Grave Location:</strong> <span id="viewGraveLocation"></span></p>
+            <p><strong>Death Certificate:</strong></p>
+            <img id="viewDeathCertificate" src="" alt="Death Certificate" style="max-width: 100%; display: none;">
+        </div>
+    </div>
+</div>
 <!-- Delete Deceased Confirmation Modal -->
 <div id="deleteModal2" class="modal">
     <div class="modal-content">
@@ -298,9 +328,6 @@ $total_deceased = getTotalDeceased($conn);
         <button onclick="closeDeleteDeceasedModal()" class="cancel-btn">Cancel</button>
     </div>
 </div>
-
-
-
    <!-- EDIT MODAL DECEASED -->
 <div id="editDeceasedModal" class="modal">
     <div class="modal-content">
@@ -329,14 +356,12 @@ $total_deceased = getTotalDeceased($conn);
 
     </div>
 </div>
-
-
     <!-- Modal ADD GRAVE -->
 <div id="addGraveModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
         <h3>Add Grave</h3>
-        <form action="add_grave.php" method="POST">
+        <form action="" method="POST">
             <label>Section:</label>
             <input type="text" name="section" required>
 
@@ -350,8 +375,6 @@ $total_deceased = getTotalDeceased($conn);
         </form>
     </div>
 </div>
-
-
 <!-- ADD GRAVE Success Message Popup -->
 <div id="addGraveSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -360,7 +383,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>Grave Added successfully.</p>
     </div>
 </div>
-
 <!-- ADD GRAVE Failed Message Popup -->
 <div id="addGraveFailed" class="modal" style="display: none;">
     <div class="modal-content">
@@ -369,45 +391,50 @@ $total_deceased = getTotalDeceased($conn);
         <p>Grave Already Exist. Please try again.</p>
     </div>
 </div>
-
-
 <!-- Modal ADD DECEASED -->
 <div id="addDeceasedModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
         <h3>Add Deceased Individual</h3>
-        <form action="add_deceased.php" method="POST">
-            <label>First Name:</label>
-            <input type="text" name="first_name" required>
-            
-            <label>Last Name:</label>
-            <input type="text" name="last_name" required>
+        <form action="" method="POST" enctype="multipart/form-data">
+    <label>First Name:</label>
+    <input type="text" name="first_name" required>
+    
+    <label>Last Name:</label>
+    <input type="text" name="last_name" required>
 
-            <label>Birth Date:</label>
-            <input type="date" name="birth_date" required>
+    <label>Birth Date:</label>
+    <input type="date" name="birth_date" required>
 
-            <label>Death Date:</label>
-            <input type="date" name="death_date" required>
+    <label>Death Date:</label>
+    <input type="date" name="death_date" required>
 
-            <label>Obituary:</label>
-            <textarea name="obituary"></textarea>
+    <label>Obituary:</label>
+    <textarea name="obituary"></textarea>
 
-            <h3>Assign Grave</h3>
-            <label>Section:</label>
-            <input type="text" name="section" required>
+    <h3>Assign Grave</h3>
+    <label>Section:</label>
+    <input type="text" name="section" required>
 
-            <label>Block Number:</label>
-            <input type="text" name="block_number" required>
+    <label>Block Number:</label>
+    <input type="text" name="block_number" required>
 
-            <label>Lot Number:</label>
-            <input type="text" name="lot_number" required>
+    <label>Lot Number:</label>
+    <input type="text" name="lot_number" required>
 
-            <button type="submit" name="add_deceased">Add</button>
-        </form>
+    <!-- File input for death certificate -->
+    <div class="file-input-container">
+        <label class="file-input-label">Upload Death Certificate:</label>
+        <input type="file" id="death_certificate" name="death_certificate" accept="image/*" class="custom-file-input" onchange="updateFileName()">
+        <label for="death_certificate" class="custom-file-label">Choose File</label>
+        <span id="file-name">No file chosen</span>
+    </div>
+
+    <button type="submit" name="add_deceased">Add</button>
+</form>
+
     </div>
 </div>
-
-
 <!-- ADD DECEASED Success Message Popup -->
 <div id="addDeceasedSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -416,7 +443,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>Success! Deceased record has been added.</p>
     </div>
 </div>
-
 <!-- ADD DECEASED Failed Message Popup -->
 <div id="addDeceasedFailed" class="modal" style="display: none;">
     <div class="modal-content">
@@ -425,8 +451,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>Error: The selected grave is already occupied.</p>
     </div>
 </div>
-
-
 <div id="graveNotExist" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close" onclick="document.getElementById('graveNotExist').style.display='none'">&times;</span>
@@ -434,8 +458,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>The specified grave does not exist.</p>
     </div>
 </div>  
-
-
 <!-- EDIT GRAVE Success Message Popup -->
 <div id="editGraveSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -444,7 +466,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>Grave details successfully updated.</p>
     </div>
 </div>
-
 <!-- EDIT DECEASED Success Message Popup -->
 <div id="editDeceasedSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -453,7 +474,6 @@ $total_deceased = getTotalDeceased($conn);
         <p>Deceased details successfully updated.</p>
     </div>
 </div>
-
 <!-- DELETE GRAVE Success Message Popup -->
 <div id="deleteGraveSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -462,7 +482,14 @@ $total_deceased = getTotalDeceased($conn);
         <p>Grave record successfully deleted.</p>
     </div>
 </div>
-
+<!-- DELETE GRAVE Failed Message Popup -->
+<div id="deleteGraveFailed" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('deleteGraveFailed').style.display='none'">&times;</span>
+        <h3 style="color: red;">Failed!</h3>
+        <p>Cannot delete. This grave is assigned to a deceased individual.</p>
+    </div>
+</div>
 <!-- DELETE DECEASED Success Message Popup -->
 <div id="deleteDeceasedSuccess" class="modal" style="display: none;">
     <div class="modal-content">
@@ -472,8 +499,31 @@ $total_deceased = getTotalDeceased($conn);
     </div>
 </div>
 
+<!-- UPLOAD Failed Message Popup -->
+<div id="uploadFailed" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('uploadFailed').style.display='none'">&times;</span>
+        <h3 style="color: red;">Failed!</h3>
+        <p>Error: File upload failed.</p>
+    </div>
+
+
+    <!-- Invalid File Type Message Popup -->
+<div id="invalidFileType" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('invalidFileType').style.display='none'">&times;</span>
+        <h3 style="color: red;">Invalid File Type!</h3>
+        <p>Error: Only specific file types are allowed.</p>
+    </div>
+</div>
+
 
 </body>
-
 </html>
+
+
+
+
+
+
 
